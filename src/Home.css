@@ -1,0 +1,55 @@
+.home-container {
+    text-align: center;
+    position: relative;
+    color: white;
+    background-color: #ffffff;
+    padding: 20px;
+}
+
+.hospital-image {
+    width: 100%;
+    max-height: 400px;
+    object-fit: cover;
+}
+
+.home-container h2 {
+    margin-top: 20px;
+    font-size: 2em;
+    font-weight: bold;
+    color: #333;
+}
+
+.home-container p {
+    font-size: 1em;
+    margin-top: 10px;
+    color: #555;
+}
+
+.navbar-custom {
+    background-color: #3f51b5;
+    padding: 10px;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.navbar-custom img {
+    height: 50px;
+    margin-right: 10px;
+}
+
+.navbar-custom h1 {
+    font-size: 1.5em;
+    font-weight: bold;
+}
+
+.navbar-custom button {
+    background-color: #f0f0f0;
+    border: none;
+    color: #3f51b5;
+    padding: 10px 20px;
+    font-size: 1em;
+    border-radius: 5px;
+    cursor: pointer;
+}
