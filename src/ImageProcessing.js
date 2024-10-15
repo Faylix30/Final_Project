@@ -40,7 +40,7 @@ export default function ImageProcessing() {
 
     const formData = new FormData();
     files.forEach(file => {
-      formData.append('images[]', file);  // แนบหลายไฟล์ใน 'images[]'
+      formData.append('images[]', file);  // แนบหลายไฟล์ใน images[]
     });
 
     try {
@@ -53,7 +53,7 @@ export default function ImageProcessing() {
 
       if (response.data.result) {
         console.log('Upload result:', response.data);
-        setResults(response.data.predictions || []);  // รับผลการพยากรณ์
+        setResults(response.data.predictions || []);  // รับผล predict
         setFiles([]);
         fileInputRef.current.value = null;
       } else {
@@ -83,7 +83,7 @@ export default function ImageProcessing() {
                   type="file"
                   className="form-control-file"
                   id="imageInput"
-                  multiple  // เปิดให้เลือกหลายไฟล์
+                  multiple  // เลือกหลายไฟล์
                   accept="image/*"
                   onChange={handleFileChange}
                   ref={fileInputRef}
@@ -110,7 +110,11 @@ export default function ImageProcessing() {
             <ul>
               {results.map((result, index) => (
                 <li key={index}>
-                  <strong>{result.file}</strong>: Prediction - {JSON.stringify(result.prediction)}
+                  <strong>{result.file}</strong>: Prediction - {result.prediction}
+                  <div>
+                    {/* แสดงรูปภาพจาก base64 */}
+                    <img src={`data:image/jpeg;base64,${result.image_base64}`} alt="Uploaded" style={{ maxWidth: '200px', marginTop: '10px' }} />
+                  </div>
                 </li>
               ))}
             </ul>
