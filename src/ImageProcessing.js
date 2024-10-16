@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
-import Navbar from './Navbar';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from "react";
 import axios from 'axios';
-import { Button } from 'react-bootstrap';
+import { Button, Spinner, ProgressBar } from 'react-bootstrap';
+import Navbar from './Navbar';
 
 export default function ImageProcessing() {
   let navigate = useNavigate();
@@ -18,11 +18,12 @@ export default function ImageProcessing() {
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [results, setResults] = useState([]);
+  const [uploadProgress, setUploadProgress] = useState(0); // เพิ่ม state สำหรับการแสดง progress bar
 
   const handleFileChange = (event) => {
-    const selectedFiles = Array.from(event.target.files);  // รับหลายไฟล์จาก input
+    const selectedFiles = Array.from(event.target.files);
     if (selectedFiles && selectedFiles.length > 0) {
-      setFiles(selectedFiles);  // เก็บไฟล์ใน state
+      setFiles(selectedFiles);
     } else {
       setFiles([]);
     }
@@ -40,7 +41,7 @@ export default function ImageProcessing() {
 
     const formData = new FormData();
     files.forEach(file => {
-      formData.append('images[]', file);  // แนบหลายไฟล์ใน images[]
+      formData.append('images[]', file);
     });
 
     try {
@@ -48,32 +49,34 @@ export default function ImageProcessing() {
         headers: {
           'Content-Type': 'multipart/form-data',
           'Authorization': localStorage.getItem("access_token")
+        },
+        onUploadProgress: (progressEvent) => {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(progress); // อัปเดต progress bar
         }
       });
 
       if (response.data.result) {
-        console.log('Upload result:', response.data);
-        setResults(response.data.predictions || []);  // รับผล predict
+        setResults(response.data.predictions || []);
         setFiles([]);
         fileInputRef.current.value = null;
       } else {
-        console.error('Upload error:', response.data.message);
         alert('Failed to upload images.');
       }
     } catch (error) {
       console.error('Error uploading images:', error);
     } finally {
       setUploading(false);
+      setUploadProgress(0); // รีเซ็ต progress bar
     }
   };
 
   return (
     <>
-      <Navbar />
       <div className="container my-5">
-        <div className="card">
-          <div className="card-header">
-            <h2>Image Processing</h2>
+        <div className="card shadow">
+          <div className="card-header bg-primary text-white">
+            <h2 className="text-center">Image Processing</h2>
           </div>
           <div className="card-body">
             <form onSubmit={handleSubmit}>
@@ -83,37 +86,47 @@ export default function ImageProcessing() {
                   type="file"
                   className="form-control-file"
                   id="imageInput"
-                  multiple  // เลือกหลายไฟล์
+                  multiple
                   accept="image/*"
                   onChange={handleFileChange}
                   ref={fileInputRef}
                 />
                 {files && files.length > 0 && (
-                  <ul className="mt-2">
+                  <ul className="mt-2 list-group">
                     {files.map((file, index) => (
-                      <li key={index}>{file.name}</li>
+                      <li key={index} className="list-group-item">
+                        {file.name}
+                      </li>
                     ))}
                   </ul>
                 )}
               </div>
               <div className="mt-3">
-                <Button variant="primary" size="lg" type="submit" disabled={uploading}>
-                  {uploading ? 'Uploading...' : 'Upload Images'}
+                <Button variant="success" size="lg" type="submit" disabled={uploading}>
+                  {uploading ? <Spinner animation="border" size="sm" /> : 'Upload Images'}
                 </Button>
               </div>
+              {uploading && (
+                <ProgressBar now={uploadProgress} label={`${uploadProgress}%`} className="mt-3" />
+              )}
             </form>
           </div>
         </div>
         {results && results.length > 0 && (
           <div className="mt-5">
             <h3>Results:</h3>
-            <ul>
+            <ul className="list-group">
               {results.map((result, index) => (
-                <li key={index}>
-                  <strong>{result.file}</strong>: Prediction - {result.prediction}
-                  <div>
-                    {/* แสดงรูปภาพจาก base64 */}
-                    <img src={`data:image/jpeg;base64,${result.image_base64}`} alt="Uploaded" style={{ maxWidth: '200px', marginTop: '10px' }} />
+                <li key={index} className="list-group-item">
+                  <ul>
+                    {result.prediction_results.map((prediction, i) => (
+                      <li key={i}>
+                        {prediction.class}: {prediction.probability}%
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-3">
+                    <img src={`data:image/jpeg;base64,${result.image_base64}`} alt="Uploaded" style={{ maxWidth: '200px', marginTop: '10px' }} className="img-thumbnail" />
                   </div>
                 </li>
               ))}

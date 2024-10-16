@@ -1,37 +1,32 @@
 import React from 'react';
-import hospitalImage from './image/BG.jpeg';
-import Navbar from './Navbar';
+import { Container, Row, Col, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from "react";
-import './Home.css';
+import backgroundImage from './image/BG.jpeg';
 
 export default function Home() {
-
     let navigate = useNavigate();
     useEffect(() => {
         if (!localStorage.getItem("access_token")) {
             navigate("/");
         }
-    }, [])
+    }, []);
 
     return (
-        <>
-            <Navbar />
-            <div className="container-fluid p-0">
-                <div className="row no-gutters">
-                    <div className="col-12">
-                        <img src={hospitalImage} alt="Hospital" className="img-fluid w-100 hospital-image" />
-                    </div>
-                    <div className="col-12 text-center py-5" style={{ backgroundColor: '#f7f7f7' }}>
-                        <h2 className="display-6 font-weight-bold">DERMATOLOGY DIAGNOSIS APPLICATION</h2>
-                        <p className="lead">
-                            This is a machine learning based rapid, accurate detection and differentiation of
-                            undesirable organisms. The application provides potentially useful early warning signs of
-                            deteriorating conditions with the ultimate aim to automate health monitoring and decision-making.
+        <div>
+            <Container className="text-center mt-5">
+                <Row className="justify-content-center">
+                    <Col md={8}>
+                        <h1 className="display-4">Welcome to the Dermatology Diagnosis Application</h1>
+                        <p className="lead mt-4">
+                            This machine learning-based application provides rapid and accurate detection of skin conditions.
+                            Let our AI help monitor and provide actionable insights to improve overall skin health.
                         </p>
-                    </div>
-                </div>
-            </div>
-        </>
+                    </Col>
+                </Row>
+            </Container>
+
+        </div>
+
     );
 }

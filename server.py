@@ -31,52 +31,61 @@ UPLOAD_FOLDER = 'imageupload'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def predict_image(image_path):
-    # โหลดภาพจากไฟล์และปรับขนาดตามที่โมเดล
+    # โหลดและพยากรณ์ด้วยโมเดล
     img = tf.keras.preprocessing.image.load_img(image_path, target_size=(200, 250))
     img_array = tf.keras.preprocessing.image.img_to_array(img) / 255.0
     img_array = np.expand_dims(img_array, axis=0)
 
-    # ทำการ predict
-    prediction = model.predict(img_array)
+    # ทำการพยากรณ์และดึงค่าความน่าจะเป็นสำหรับแต่ละคลาส
+    predictions = model.predict(img_array)
 
-    # label จากผลลัพธ์การ predict
-    labels = ['Microsporum canis', 'Scytalidium dimidiatum']
-    predicted_label = labels[np.argmax(prediction)]  # ดึง label ที่ predict ได้
+    # ตัวอย่างการตั้งชื่อ label สำหรับแต่ละคลาส
+    labels = ['Class A', 'Class B', 'Class C']  # คุณสามารถปรับ label ตามคลาสที่คุณเทรนไว้
 
-    # แปลงรูปภาพเป็น Base64
+    # สร้างผลลัพธ์โดยแสดงความน่าจะเป็นของแต่ละคลาสเป็นเปอร์เซ็นต์
+    prediction_results = []
+    for i, probability in enumerate(predictions[0]):
+        percentage = round(float(probability) * 100, 2)  # แปลงค่าเป็นเปอร์เซ็นต์และแสดงทศนิยม 2 ตำแหน่ง
+        prediction_results.append({
+            'class': labels[i],
+            'probability': percentage
+        })
+
+    # แปลงรูปภาพเป็น Base64 เพื่อใช้แสดงใน frontend
     pil_img = Image.open(image_path)
     buffered = BytesIO()
     pil_img.save(buffered, format="JPEG")
     img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
 
     return {
-        'prediction': predicted_label,
+        'prediction_results': prediction_results,
         'image_base64': img_base64
     }
+
 
 @app.route('/api/upload', methods=['POST'])
 def upload_image():
     if 'images[]' not in request.files:
         return jsonify({'result': False, 'message': 'No file part'})
 
-    files = request.files.getlist('images[]')  # รับไฟล์หลายไฟล์
+    files = request.files.getlist('images[]')  # รับไฟล์หลายไฟล์จากคำขอ
     if not files:
         return jsonify({'result': False, 'message': 'No files found'})
 
-    results = []  # สำหรับเก็บผลลัพธ์การ predict ของแต่ละไฟล์
+    results = []  # สำหรับเก็บผลลัพธ์การพยากรณ์ของแต่ละไฟล์
 
     for file in files:
         if file.filename == '':
             return jsonify({'result': False, 'message': 'No selected file'})
 
         filename = secure_filename(file.filename)
-        
-        # บันทึกข้อมูลลงฐานข้อมูลเพื่อดึง image_id
+
+        # บันทึกข้อมูลลงฐานข้อมูลเพื่อดึงค่า image_id
         now = datetime.now().strftime('%Y-%m-%d')
         try:
             cursor.execute("INSERT INTO image (date, image_name) VALUES (%s, %s)", (now, filename))
             db.commit()
-            image_id = cursor.lastrowid  # ดึง image_id จากฐานข้อมูลหลังบันทึก
+            image_id = cursor.lastrowid  # ดึง image_id จากฐานข้อมูลหลังการบันทึก
         except Exception as e:
             db.rollback()
             return jsonify({'result': False, 'message': str(e)})
@@ -89,17 +98,17 @@ def upload_image():
         file.save(file_path)
 
         try:
-            #  predict และรับผลลัพธ์
+            # ทำการพยากรณ์และรับผลลัพธ์ (รวมเปอร์เซ็นต์ของแต่ละคลาส)
             result = predict_image(file_path)
-            
+
             # อัปเดตชื่อไฟล์ในฐานข้อมูล
             cursor.execute("UPDATE image SET image_name = %s WHERE image_id = %s", (new_filename, image_id))
             db.commit()
 
-            # เก็บผลลัพธ์การ predict ใน results
+            # เก็บผลลัพธ์การพยากรณ์ใน results
             results.append({
                 'file': new_filename,
-                'prediction': result['prediction'],
+                'prediction_results': result['prediction_results'],  # ส่งผลลัพธ์การพยากรณ์เป็นเปอร์เซ็นต์
                 'image_base64': result['image_base64']
             })
         except Exception as e:
