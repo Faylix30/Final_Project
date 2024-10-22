@@ -5,12 +5,14 @@ import tensorflow as tf
 import numpy as np
 import jwt
 import os
-from imageupload import connect_to_db, create_image_upload, save_file
+from database import connect_to_db
 from datetime import datetime
 import bcrypt
 import base64
 from io import BytesIO
 from PIL import Image
+import mysql.connector
+from mysql.connector import Error
 
 # Flask app setup
 app = Flask(__name__)
@@ -24,23 +26,21 @@ db = connect_to_db()
 cursor = db.cursor()
 
 # Load Model
-model = tf.keras.models.load_model('./model/DenseNet201.h5')
+model = tf.keras.models.load_model('./model/ResNet50.h5')
 
 # Upload folder configuration
 UPLOAD_FOLDER = 'imageupload'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def predict_image(image_path):
-    # โหลดและพยากรณ์ด้วยโมเดล
+    # โหลด และ predict ด้วยโมเดล
     img = tf.keras.preprocessing.image.load_img(image_path, target_size=(200, 250))
     img_array = tf.keras.preprocessing.image.img_to_array(img) / 255.0
     img_array = np.expand_dims(img_array, axis=0)
 
-    # ทำการพยากรณ์และดึงค่าความน่าจะเป็นสำหรับแต่ละคลาส
+    # predict และดึงค่าความน่าจะเป็นสำหรับแต่ละคลาส
     predictions = model.predict(img_array)
-
-    # ตัวอย่างการตั้งชื่อ label สำหรับแต่ละคลาส
-    labels = ['Class A', 'Class B', 'Class C']  # คุณสามารถปรับ label ตามคลาสที่คุณเทรนไว้
+    labels = ['ไม่สามารถระบุเชื้อได้','Microsporum canis', 'Scytalidium dimidiatum']
 
     # สร้างผลลัพธ์โดยแสดงความน่าจะเป็นของแต่ละคลาสเป็นเปอร์เซ็นต์
     prediction_results = []
@@ -62,17 +62,17 @@ def predict_image(image_path):
         'image_base64': img_base64
     }
 
-
+# API: upload & predict
 @app.route('/api/upload', methods=['POST'])
 def upload_image():
     if 'images[]' not in request.files:
         return jsonify({'result': False, 'message': 'No file part'})
 
-    files = request.files.getlist('images[]')  # รับไฟล์หลายไฟล์จากคำขอ
+    files = request.files.getlist('images[]')
     if not files:
         return jsonify({'result': False, 'message': 'No files found'})
 
-    results = []  # สำหรับเก็บผลลัพธ์การพยากรณ์ของแต่ละไฟล์
+    results = []
 
     for file in files:
         if file.filename == '':
@@ -80,35 +80,41 @@ def upload_image():
 
         filename = secure_filename(file.filename)
 
-        # บันทึกข้อมูลลงฐานข้อมูลเพื่อดึงค่า image_id
+        # Insert image details into database
         now = datetime.now().strftime('%Y-%m-%d')
         try:
             cursor.execute("INSERT INTO image (date, image_name) VALUES (%s, %s)", (now, filename))
             db.commit()
-            image_id = cursor.lastrowid  # ดึง image_id จากฐานข้อมูลหลังการบันทึก
+            image_id = cursor.lastrowid
         except Exception as e:
             db.rollback()
             return jsonify({'result': False, 'message': str(e)})
 
-        # นำ image_id มานำหน้าชื่อไฟล์
+        # Rename file with image_id and save to disk
         new_filename = f"{image_id}_{filename}"
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
-
-        # บันทึกไฟล์ลงโฟลเดอร์
         file.save(file_path)
 
         try:
-            # ทำการพยากรณ์และรับผลลัพธ์ (รวมเปอร์เซ็นต์ของแต่ละคลาส)
+            # Get prediction results
             result = predict_image(file_path)
 
-            # อัปเดตชื่อไฟล์ในฐานข้อมูล
+            # Update image name in database
             cursor.execute("UPDATE image SET image_name = %s WHERE image_id = %s", (new_filename, image_id))
             db.commit()
 
-            # เก็บผลลัพธ์การพยากรณ์ใน results
+            # Save prediction results in database
+            for prediction in result['prediction_results']:
+                class_name = prediction['class']
+                probability = prediction['probability']
+                cursor.execute("INSERT INTO predictions (image_id, class_name, probability) VALUES (%s, %s, %s)", 
+                               (image_id, class_name, probability))
+            db.commit()
+
+            # Add results to response
             results.append({
                 'file': new_filename,
-                'prediction_results': result['prediction_results'],  # ส่งผลลัพธ์การพยากรณ์เป็นเปอร์เซ็นต์
+                'prediction_results': result['prediction_results'],
                 'image_base64': result['image_base64']
             })
         except Exception as e:
@@ -117,19 +123,55 @@ def upload_image():
 
     return jsonify({'result': True, 'predictions': results})
 
-# API: predict
-@app.route('/api/predict', methods=['POST'])
-def predict():
-    data = request.json
-    image_path = os.path.join(app.config['UPLOAD_FOLDER'], data['filename'])
-
-    if not os.path.exists(image_path):
-        return jsonify({'result': False, 'message': 'File not found'})
-
+# API: prediction history
+@app.route('/api/prediction-history', methods=['GET'])
+def prediction_history():
     try:
-        prediction = predict_image(image_path)
-        return jsonify({'result': True, 'prediction': prediction})
+        cursor.execute("""
+            SELECT image.image_id, image.image_name, image.date, predictions.class_name, predictions.probability
+            FROM image
+            JOIN predictions ON image.image_id = predictions.image_id
+            ORDER BY image.date DESC
+        """)
+        rows = cursor.fetchall()
+
+        history = {}
+        for row in rows:
+            image_id, image_name, date, class_name, probability = row
+            # ถ้า image_id ยังไม่มีใน history ให้สร้าง entry ใหม่
+            if image_id not in history:
+                history[image_id] = {
+                    'image_id': image_id,
+                    'image_name': image_name,
+                    'date': date,
+                    'predictions': []
+                }
+            # เพิ่มผลลัพธ์การ predict ในรายการ predictions
+            history[image_id]['predictions'].append({
+                'class_name': class_name,
+                'probability': probability
+            })
+
+        # ส่งคืนข้อมูลในรูปแบบ list
+        return jsonify({'result': True, 'history': list(history.values())})
     except Exception as e:
+        return jsonify({'result': False, 'message': str(e)})
+
+# API: delete prediction history
+@app.route('/api/delete-history/<int:image_id>', methods=['DELETE'])
+def delete_history(image_id):
+    try:
+        # ลบข้อมูล predictions ที่เกี่ยวข้องกับ image_id
+        cursor.execute("DELETE FROM predictions WHERE image_id = %s", (image_id,))
+        db.commit()
+        
+        # ลบข้อมูล image ที่เกี่ยวข้อง
+        cursor.execute("DELETE FROM image WHERE image_id = %s", (image_id,))
+        db.commit()
+
+        return jsonify({'result': True, 'message': 'Deleted successfully'})
+    except Exception as e:
+        db.rollback()
         return jsonify({'result': False, 'message': str(e)})
 
 # API: login
@@ -143,7 +185,15 @@ def login():
     user = cursor.fetchone()
 
     if user and bcrypt.checkpw(password, user[2].encode('utf-8')):
-        return jsonify({'result': True})
+        user_role = user[5]
+        
+        return jsonify({
+            'result': True,
+            'user': {
+                'username': username,
+                'role': user_role
+            }
+        })
     else:
         return jsonify({'result': False, 'message': 'Invalid username or password'})
 
@@ -192,6 +242,7 @@ def access_request():
         return jsonify({'result': False, 'message': 'Token expired'})
     except jwt.InvalidTokenError:
         return jsonify({'result': False, 'message': 'Invalid token'})
+
 
 if __name__ == '__main__':
     app.run(port=8080, debug=True)

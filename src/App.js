@@ -4,6 +4,7 @@ import ImageProcessing from './ImageProcessing';
 import Home from './Home';
 import Login from './login';
 import Navbar from './Navbar';
+import PredictionHistory from './PredictionHistory';
 import { Container } from 'react-bootstrap';
 
 function App() {
@@ -17,12 +18,13 @@ function App() {
           <Route path="/" element={<Login />} />
           <Route path="/home" element={<Home />} />
           <Route path="/image-processing" element={<ImageProcessing />} />
+          <Route path="/prediction-history" element={<PredictionHistory />} />
         </Routes>
       </Container>
       
       <footer className="bg-dark text-white text-center py-3 mt-4">
         <Container>
-          <p>2024 Reliance Industries Limited. All rights reserved</p>
+          <p>2024 Prince of Songkla University. All rights reserved</p>
         </Container>
       </footer>
     </div>
