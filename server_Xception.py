@@ -4,15 +4,13 @@ from werkzeug.utils import secure_filename
 import tensorflow as tf
 import numpy as np
 import jwt
-import os
 from database import connect_to_db
-from datetime import datetime
 import bcrypt
 import base64
 from io import BytesIO
 from PIL import Image
-import mysql.connector
-from mysql.connector import Error
+from datetime import datetime
+import os
 
 # Flask app setup
 app = Flask(__name__)

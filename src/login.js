@@ -22,27 +22,6 @@ export default function Login() {
         setValidated(true);
     }
 
-    // const doLogin = async () => {
-    //     const user_data = { username: username, password: password };
-    //     const response = await fetch("http://localhost:8080/login", {
-    //         method: "POST",
-    //         headers: {
-    //             Accept: "application/json",
-    //             'Content-Type': 'application/json',
-    //         },
-    //         body: JSON.stringify(user_data)
-    //     });
-    //     const data = await response.json();
-    //     if (data.result) {
-    //         const authToken = (await getAuthenToken()).data.auth_token;
-    //         const accessToken = (await getAccessToken(authToken, password)).data.access_token;
-    //         localStorage.setItem("access_token", accessToken);
-    //         navigate("/home");
-    //     } else {
-    //         alert('Login failed: ' + data.message);
-    //     }
-    // }
-
     const doLogin = async () => {
         const user_data = { username: username, password: password };
         const response = await fetch("http://localhost:8080/login", {
@@ -55,14 +34,13 @@ export default function Login() {
         });
         const data = await response.json();
 
-        console.log(data);  // This will show the entire response, including the user and role
+        console.log(data);  // show user and role
 
         if (data.result) {
             const authToken = (await getAuthenToken()).data.auth_token;
             const accessToken = (await getAccessToken(authToken, password)).data.access_token;
             localStorage.setItem("access_token", accessToken);
 
-            // Store the user role if available
             if (data.user && data.user.role) {
                 localStorage.setItem("user_role", data.user.role);
             } else {
@@ -105,14 +83,13 @@ export default function Login() {
             <h1 style={{ fontWeight: 'bold', fontSize: '3rem', textAlign: 'center', marginBottom: '20px' }}>Login</h1>
             <Row className="w-100" style={{ maxWidth: '900px', borderRadius: '20px', boxShadow: '0 8px 20px rgba(0, 0, 0, 0.1)', overflow: 'hidden', backgroundColor: '#ffffff' }}>
 
-                {/* ส่วนที่มีรูปพื้นหลัง */}
                 <Col
                     md={6}
                     style={{
                         backgroundImage: `url(${backgroundImage})`,
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
-                        position: 'relative', // ทำให้สามารถใช้ overlay ภายใน Col ได้
+                        position: 'relative',
                     }}
                 >
                     {/* การสร้าง overlay เพื่อทำให้พื้นหลังมืดลง */}
@@ -136,7 +113,7 @@ export default function Login() {
                             display: 'flex',
                             justifyContent: 'flex-start',
                             alignItems: 'center',
-                            paddingLeft: '20px',
+                            paddingLeft: '10px',
                             height: '100%',
                         }}
                     >
@@ -146,9 +123,8 @@ export default function Login() {
                     </div>
                 </Col>
 
-                {/* ส่วนของฟอร์มล็อกอิน */}
+                {/* from login */}
                 <Col md={6} className="d-flex flex-column justify-content-center p-5">
-                    {/* แสดงรูปภาพแทนคำว่า Login */}
                     <div className="text-center mb-4">
                         <img src={loginImage} alt="Login" style={{ maxWidth: '350px' }} />
                     </div>

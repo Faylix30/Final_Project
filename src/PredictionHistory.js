@@ -50,7 +50,7 @@ function PredictionHistory() {
         }
     };
 
-    // Filter history based on search query
+    // search
     const filteredHistory = history.filter(entry =>
         entry.image_name.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -65,7 +65,7 @@ function PredictionHistory() {
                     type="text"
                     placeholder="Search by image name"
                     value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}  // Update search query
+                    onChange={e => setSearchQuery(e.target.value)}  // search query
                 />
             </Form.Group>
 

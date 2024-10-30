@@ -4,15 +4,13 @@ from werkzeug.utils import secure_filename
 import tensorflow as tf
 import numpy as np
 import jwt
-import os
 from database import connect_to_db
-from datetime import datetime
 import bcrypt
 import base64
 from io import BytesIO
 from PIL import Image
-import mysql.connector
-from mysql.connector import Error
+from datetime import datetime
+import os
 
 # Flask app setup
 app = Flask(__name__)
@@ -33,25 +31,25 @@ UPLOAD_FOLDER = 'imageupload'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def predict_image(image_path):
-    # โหลด และ predict ด้วยโมเดล
+    # ปรับขนาดรูป
     img = tf.keras.preprocessing.image.load_img(image_path, target_size=(200, 250))
     img_array = tf.keras.preprocessing.image.img_to_array(img) / 255.0
     img_array = np.expand_dims(img_array, axis=0)
 
-    # predict และดึงค่าความน่าจะเป็นสำหรับแต่ละคลาส
+    # predict และเก็บค่าความน่าจะเป็นของแต่ละคลาส
     predictions = model.predict(img_array)
     labels = ['ไม่สามารถระบุเชื้อได้','Microsporum canis', 'Scytalidium dimidiatum']
 
-    # สร้างผลลัพธ์โดยแสดงความน่าจะเป็นของแต่ละคลาสเป็นเปอร์เซ็นต์
+    # เปลี่ยนเป็นเปอร์เซ็นต์
     prediction_results = []
     for i, probability in enumerate(predictions[0]):
-        percentage = round(float(probability) * 100, 2)  # แปลงค่าเป็นเปอร์เซ็นต์และแสดงทศนิยม 2 ตำแหน่ง
+        percentage = round(float(probability) * 100, 2)  # แปลงค่าเป็นเปอร์เซ็นต์ และแสดงทศนิยม 2 ตำแหน่ง
         prediction_results.append({
             'class': labels[i],
             'probability': percentage
         })
 
-    # แปลงรูปภาพเป็น Base64 เพื่อใช้แสดงใน frontend
+    # แสดงใน frontend
     pil_img = Image.open(image_path)
     buffered = BytesIO()
     pil_img.save(buffered, format="JPEG")
@@ -90,7 +88,6 @@ def upload_image():
             db.rollback()
             return jsonify({'result': False, 'message': str(e)})
 
-        # Rename file with image_id and save to disk
         new_filename = f"{image_id}_{filename}"
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
         file.save(file_path)
@@ -146,7 +143,6 @@ def prediction_history():
                     'date': date,
                     'predictions': []
                 }
-            # เพิ่มผลลัพธ์การ predict ในรายการ predictions
             history[image_id]['predictions'].append({
                 'class_name': class_name,
                 'probability': probability
